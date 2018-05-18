@@ -3,6 +3,7 @@ import tensorflow as tf
 import argparse
 import pprint
 
+from net import inception_v1
 from config import cfg,cfg_from_file ,get_output_dir
 from dataset_factory import TSNDataReader
 
@@ -27,19 +28,46 @@ def main():
   
   #-------------搭建计算图-------------#
   # 读取数据
-  if cfg.TRAIN.MODALITY == 'rgb':
-    images_batch = TSNDataReader(cfg.DATA_DIR,
+  if cfg.INPUT.MODALITY == 'rgb':
+    tsn_batch ,labels= TSNDataReader(cfg.DATA_DIR,
+                                 cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
+                                 cfg.INPUT.NUM_SEGMENTS,
+                                 cfg.INPUT.NEW_LENGTH,
                                  cfg.TRAIN.SPLIT_PATH,
-                                 cfg.TEST.SPLIT_PATH,
-                                 cfg.TRAIN.MODALITY,
-                                 cfg.TRAIN.NUM_SEGMENTS,
-                                 cfg.TRAIN.NEW_LENGTH_RGB,
-                                 cfg.TRAIN.BATCH_SIZE).get_dataset()
-  elif cfg.TRAIN.MODALITY == 'flow':
+                                 cfg.TRAIN.BATCH_SIZE
+                                 isTraining=True).get_batch()
+  elif cfg.INPUT.MODALITY == 'flow':
+    tsn_batch ,labels= TSNDataReader(cfg.DATA_DIR,
+                                 cfg.INPUT.MODALITY,
+                                 cfg.INPUT.NUM_SEGMENTS,
+                                 cfg.INPUT.NEW_LENGTH,
+                                 cfg.TRAIN.SPLIT_PATH,
+                                 cfg.TRAIN.BATCH_SIZE,
+                                 isTraining=True).get_batch()
   
   # 获取网络， 并完成前传
+  logits = inception_v1.inception_v1(inputs,
+                                     num_classes=cfg.NUM_CLASSES.
+                                     is_training=True,
+                                     dropout_keep_prob=cfg.TRAIN.DROPOUT_KEEP_PROB,
+                                     prediction_fn=slim.softmax,
+                                     spatial_squeeze=True,
+                                     reuse=None,
+                                     scope='InceptionV1',
+                                     global_pool=False)
+  if cfg.TRAIN.MODALITY == 'rgb':
+    logits = tf.resize(logits,[cfg.BATCH_SIZE,cfg.NUM_SEGMENTS*cfg.NEW_LENGTH_RGB],3) # 还原
+  if cfg.TRAIN.MODALITY == 'flow':
+    logits = tf.resize(logits,[cfg.BATCH_SIZE,cfg.NUM_SEGMENTS*cfg.NEW_LENGTH_FLOW],2)
+  
+  logits = tf.reduce_mean(logits,[2])
 
-  #   
+  # 求loss 
+  loss =
+
+  # 优化
+
+  # 预测验证集，求取精度 
    
   
 if __name__=='__main__':

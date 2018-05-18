@@ -12,24 +12,21 @@ cfg = __C  # 引用传递
 #------关于输入的配置-------#
 __C.INPUT = edict()
 
-__C.INPUT.INPUT_IMAGE_FORMAT = 'normal'
+__C.INPUT.MODALITY= 'rgb'  # 可选
+__C.INPUT.NUM_SEGMENTS = 3
+__C.INPUT.NEW_LENGTH = 1  # 可变
 
 #------Training配置-------#
 __C.TRAIN = edict()
 
-__C.TRAIN.SPLIT_PATH = 'data/..'
-__C.TRAIN.MODALITY= 'rgb'
-__C.TRAIN.NUM_SEGMENTS_RGB = 3
-__C.TRAIN.NEW_LENGTH_RGB = 1
-__C.TRAIN.NEW_LENGTH_FLOW = 10
-
+__C.TRAIN.SPLIT_PATH = './datai/..'
 __C.TRAIN.BATCH_SIZE = 10
+__C.TRAIN.DROPOUT_KEEP_PROB
 
 #------Test配置-------#
 __C.TEST = edict()
 
 __C.TEST.SPLIT_PATH = 'data/..'
-
 __C.TEST.BATCH_SIZE = 10
 
 #------Network配置-------#
@@ -38,6 +35,8 @@ __C.NET.TRAIN_TOP_BN = False
 __C.NET.DROPOUT = -1.0
 
 #------其它配置-------#
+__C.NUM_CLASSES = 30
+
 __C.GPUS = '0'
 __C.EXP_DIR = 'expt_outputs/' #输出文件夹设置在项目目录下expt_outputs文件夹中
 __C.DATA_DIR = '/share/dataset/..'
