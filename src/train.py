@@ -3,7 +3,7 @@ import tensorflow as tf
 import argparse
 import pprint
 
-from net import inception_v1
+from nets import inception_v2
 from config import cfg,cfg_from_file ,get_output_dir
 from dataset_factory import TSNDataReader
 
@@ -27,7 +27,7 @@ def main():
   os.environ['CUDA_VISBLE_DEVICES']=cfg.GPUS
   
   #-------------搭建计算图-------------#
-  # 读取数据
+  # 读取数据,tsn_batch形式：(batch_size*num_seg*new_length) * h * w * num_channels
   if cfg.INPUT.MODALITY == 'rgb':
     tsn_batch ,labels= TSNDataReader(cfg.DATA_DIR,
                                  cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
@@ -44,17 +44,21 @@ def main():
                                  cfg.TRAIN.SPLIT_PATH,
                                  cfg.TRAIN.BATCH_SIZE,
                                  isTraining=True).get_batch()
-  
+  else:
+    raise ValueError("modality must be one of rgb or flow") 
   # 获取网络， 并完成前传
-  logits = inception_v1.inception_v1(inputs,
-                                     num_classes=cfg.NUM_CLASSES.
+  logits = inception_v2.inception_v2(inputs,
+                                     num_classes=cfg.NUM_CLASSES,
                                      is_training=True,
                                      dropout_keep_prob=cfg.TRAIN.DROPOUT_KEEP_PROB,
+                                     min_depth=16,
+                                     depth_multiplier=1.0,
                                      prediction_fn=slim.softmax,
                                      spatial_squeeze=True,
                                      reuse=None,
-                                     scope='InceptionV1',
+                                     scope='InceptionV2',
                                      global_pool=False)
+
   if cfg.TRAIN.MODALITY == 'rgb':
     logits = tf.resize(logits,[cfg.BATCH_SIZE,cfg.NUM_SEGMENTS*cfg.NEW_LENGTH_RGB],3) # 还原
   if cfg.TRAIN.MODALITY == 'flow':
