@@ -34,9 +34,11 @@ def inception_v2_base(inputs,
                       data_format='NHWC',
                       scope=None):
   """Inception v2 (6a2).
+
   Constructs an Inception v2 network from inputs to the given final endpoint.
   This method can construct the network up to the layer inception(5b) as
   described in http://arxiv.org/abs/1502.03167.
+
   Args:
     inputs: a tensor of shape [batch_size, height, width, channels].
     final_endpoint: specifies the endpoint to construct the network up to. It
@@ -55,10 +57,12 @@ def inception_v2_base(inputs,
       Conv2d_1a_7x7. If this is False, use a normal convolution instead.
     data_format: Data format of the activations ('NHWC' or 'NCHW').
     scope: Optional variable_scope.
+
   Returns:
     tensor_out: output tensor corresponding to the final_endpoint.
     end_points: a set of activations for external use, for example summaries or
                 losses.
+
   Raises:
     ValueError: if final_endpoint is not set to one of the predefined values,
                 or depth_multiplier <= 0
@@ -457,9 +461,12 @@ def inception_v2(inputs,
                  scope='InceptionV2',
                  global_pool=False):
   """Inception v2 model for classification.
+
   Constructs an Inception v2 network for classification as described in
   http://arxiv.org/abs/1502.03167.
+
   The default image size used to train this network is 224x224.
+
   Args:
     inputs: a tensor of shape [batch_size, height, width, channels].
     num_classes: number of predicted classes. If 0 or None, the logits layer
@@ -484,12 +491,14 @@ def inception_v2(inputs,
       logits layer. If false or unset, pooling is done with a fixed window
       that reduces default-sized inputs to 1x1, while larger inputs lead to
       larger outputs. If true, any input size is pooled down to 1x1.
+
   Returns:
     net: a Tensor with the logits (pre-softmax activations) if num_classes
       is a non-zero integer, or the non-dropped-out input to the logits layer
       if num_classes is 0 or None.
     end_points: a dictionary from components of the network to the corresponding
       activation.
+
   Raises:
     ValueError: if final_endpoint is not set to one of the predefined values,
                 or depth_multiplier <= 0
@@ -531,13 +540,17 @@ inception_v2.default_image_size = 224
 
 def _reduced_kernel_size_for_small_input(input_tensor, kernel_size):
   """Define kernel size which is automatically reduced for small input.
+
   If the shape of the input images is unknown at graph construction time this
   function assumes that the input images are is large enough.
+
   Args:
     input_tensor: input tensor of size [batch_size, height, width, channels].
     kernel_size: desired kernel size of length 2: [kernel_height, kernel_width]
+
   Returns:
     a tensor with the kernel size.
+
   TODO(jrru): Make this function work with unknown shapes. Theoretically, this
   can be done with the code below. Problems are two-fold: (1) If the shape was
   known, it will be lost. (2) inception.slim.ops._two_element_tuple cannot
@@ -545,6 +558,7 @@ def _reduced_kernel_size_for_small_input(input_tensor, kernel_size):
       shape = tf.shape(input_tensor)
       return = tf.stack([tf.minimum(shape[1], kernel_size[0]),
                          tf.minimum(shape[2], kernel_size[1])])
+
   """
   shape = input_tensor.get_shape().as_list()
   if shape[1] is None or shape[2] is None:

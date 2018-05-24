@@ -15,18 +15,29 @@ __C.INPUT = edict()
 __C.INPUT.MODALITY= 'rgb'  # 可选
 __C.INPUT.NUM_SEGMENTS = 3
 __C.INPUT.NEW_LENGTH = 1  # 可变
+__C.INPUT.DATA_DIR = '/home/zy_17/tsn_violence'  #可通过调整此项在多个数据集上做实验
+__C.INPUT.SPLIT_PATH = '/home/myn_17/BK - v1/testlist.txt' # 随MODALITY而变
 
 #------Training配置-------#
 __C.TRAIN = edict()
 
-__C.TRAIN.SPLIT_PATH = './datai/..'
-__C.TRAIN.BATCH_SIZE = 10
-__C.TRAIN.DROPOUT_KEEP_PROB
+#__C.TRAIN.SPLIT_PATH = '/home/myn_17/BK - v1/trainlist.txt'
+#__C.TRAIN.BATCH_SIZE = 256
+__C.TRAIN.BATCH_SIZE = 1
+__C.TRAIN.LEARNING_RATE_BASE = 0.001
+__C.TRAIN.DECAY_STEP = 2000
+__C.TRAIN.DECAY_RATE = 0.1
+__C.TRAIN.DROPOUT_KEEP_PROB = 0.8
+__C.TRAIN.REGULARIZATION_SCALE = 0.0001 #??
+__C.TRAIN.MAX_ITE = 4500 
+__C.TRAIN.MOMENTUM = 0.9
 
+__C.TRAIN.PRETRAINED_MODEL_NAME = './models/pretrained/inception_v2.ckpt'
+__C.TRAIN.SAVED_MODEL_PATTERN = './models/tsn_rgb_bk_v1.ckpt'
 #------Test配置-------#
 __C.TEST = edict()
 
-__C.TEST.SPLIT_PATH = 'data/..'
+__C.TEST.SPLIT_PATH = '/home/myn_17/BK - v1/testlist.txt'
 __C.TEST.BATCH_SIZE = 10
 
 #------Network配置-------#
@@ -37,13 +48,11 @@ __C.NET.DROPOUT = -1.0
 #------其它配置-------#
 __C.NUM_CLASSES = 30
 
-__C.GPUS = '0'
+__C.GPUS = '0,1'  # 末尾无逗号
 __C.EXP_DIR = 'expt_outputs/' #输出文件夹设置在项目目录下expt_outputs文件夹中
-__C.DATA_DIR = '/share/dataset/..'
 __C.RGB_PREFIX = 'img_'
 __C.FLOW_X_PREFIX = 'flow_x'
 __C.FLOW_Y_PREFIX = 'flow_y'
-__C.split
 
 
 

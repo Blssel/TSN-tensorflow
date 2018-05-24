@@ -1,4 +1,3 @@
-#coding:utf-8
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,11 +30,13 @@ def inception_v1_base(inputs,
                       final_endpoint='Mixed_5c',
                       scope='InceptionV1'):
   """Defines the Inception V1 base architecture.
+
   This architecture is defined in:
     Going deeper with convolutions
     Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed,
     Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew Rabinovich.
     http://arxiv.org/pdf/1409.4842v1.pdf.
+
   Args:
     inputs: a tensor of size [batch_size, height, width, channels].
     final_endpoint: specifies the endpoint to construct the network up to. It
@@ -44,8 +45,10 @@ def inception_v1_base(inputs,
       'MaxPool_4a_3x3', 'Mixed_4b', 'Mixed_4c', 'Mixed_4d', 'Mixed_4e',
       'Mixed_4f', 'MaxPool_5a_2x2', 'Mixed_5b', 'Mixed_5c']
     scope: Optional variable_scope.
+
   Returns:
     A dictionary from components of the network to the corresponding activation.
+
   Raises:
     ValueError: if final_endpoint is not set to one of the predefined values.
   """
@@ -56,12 +59,10 @@ def inception_v1_base(inputs,
         weights_initializer=trunc_normal(0.01)):
       with slim.arg_scope([slim.conv2d, slim.max_pool2d],
                           stride=1, padding='SAME'):
-        # 第一层
-        end_point = 'Conv2d_1a_7x7'                                           
+        end_point = 'Conv2d_1a_7x7'
         net = slim.conv2d(inputs, 64, [7, 7], stride=2, scope=end_point)
         end_points[end_point] = net
         if final_endpoint == end_point: return net, end_points
-        # 第一层
         end_point = 'MaxPool_2a_3x3'
         net = slim.max_pool2d(net, [3, 3], stride=2, scope=end_point)
         end_points[end_point] = net
@@ -74,7 +75,6 @@ def inception_v1_base(inputs,
         net = slim.conv2d(net, 192, [3, 3], scope=end_point)
         end_points[end_point] = net
         if final_endpoint == end_point: return net, end_points
-        # 第三层（inception模块）
         end_point = 'MaxPool_3a_3x3'
         net = slim.max_pool2d(net, [3, 3], stride=2, scope=end_point)
         end_points[end_point] = net
@@ -116,7 +116,6 @@ def inception_v1_base(inputs,
         end_points[end_point] = net
         if final_endpoint == end_point: return net, end_points
 
-        # 第四层
         end_point = 'MaxPool_4a_3x3'
         net = slim.max_pool2d(net, [3, 3], stride=2, scope=end_point)
         end_points[end_point] = net
@@ -212,7 +211,6 @@ def inception_v1_base(inputs,
         end_points[end_point] = net
         if final_endpoint == end_point: return net, end_points
 
-        # 第五层
         end_point = 'MaxPool_5a_2x2'
         net = slim.max_pool2d(net, [2, 2], stride=2, scope=end_point)
         end_points[end_point] = net
@@ -266,12 +264,16 @@ def inception_v1(inputs,
                  scope='InceptionV1',
                  global_pool=False):
   """Defines the Inception V1 architecture.
+
   This architecture is defined in:
+
     Going deeper with convolutions
     Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed,
     Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew Rabinovich.
     http://arxiv.org/pdf/1409.4842v1.pdf.
+
   The default image size used to train this network is 224x224.
+
   Args:
     inputs: a tensor of size [batch_size, height, width, channels].
     num_classes: number of predicted classes. If 0 or None, the logits layer
@@ -289,6 +291,7 @@ def inception_v1(inputs,
       logits layer. If false or unset, pooling is done with a fixed window
       that reduces default-sized inputs to 1x1, while larger inputs lead to
       larger outputs. If true, any input size is pooled down to 1x1.
+
   Returns:
     net: a Tensor with the logits (pre-softmax activations) if num_classes
       is a non-zero integer, or the non-dropped-out input to the logits layer
