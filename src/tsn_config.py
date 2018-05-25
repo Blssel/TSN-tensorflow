@@ -23,7 +23,7 @@ __C.TRAIN = edict()
 
 #__C.TRAIN.SPLIT_PATH = '/home/myn_17/BK - v1/trainlist.txt'
 #__C.TRAIN.BATCH_SIZE = 256
-__C.TRAIN.BATCH_SIZE = 1
+__C.TRAIN.BATCH_SIZE = 64   # equal to real batch_size / num_gpus
 __C.TRAIN.LEARNING_RATE_BASE = 0.001
 __C.TRAIN.DECAY_STEP = 2000
 __C.TRAIN.DECAY_RATE = 0.1
@@ -49,6 +49,7 @@ __C.NET.DROPOUT = -1.0
 __C.NUM_CLASSES = 30
 
 __C.GPUS = '0,1'  # 末尾无逗号
+__C.SUMMARY_DIR = './log'
 __C.EXP_DIR = 'expt_outputs/' #输出文件夹设置在项目目录下expt_outputs文件夹中
 __C.RGB_PREFIX = 'img_'
 __C.FLOW_X_PREFIX = 'flow_x'
