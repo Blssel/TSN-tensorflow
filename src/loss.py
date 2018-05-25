@@ -1,8 +1,9 @@
+#coding:utf-8
 import tensorflow as tf
 slim = tf.contrib.slim
 
 
-def tsn_loss(logits,labels,regularization=None,scope):
+def tsn_loss(logits,labels,scope,regularization=None):
   with tf.name_scope('LossFn'):
     # 交叉熵loss 自动加入tf.GraphKeys.LOSSES中
     cross_entropy = tf.losses.softmax_cross_entropy(labels,logits)
