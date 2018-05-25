@@ -7,7 +7,7 @@ import sys
 
 #sys.path.append("~/workspace/Classical-ActionRecognition-Model-Zoo/net")
 from nets.inception_v2 import inception_v2, inception_v2_arg_scope
-from config import cfg,cfg_from_file ,get_output_dir
+from tsn_config import cfg,cfg_from_file ,get_output_dir
 from dataset_factory import TSNDataReader
 from loss import tsn_loss
 
@@ -17,9 +17,9 @@ def average_gradients(tower_grads):
   average_grads=[]
   for grad_and_vars in zip(*tower_grads):
     grads = []
-    for g, _ in grads_and_vars:
+    for g, _ in grad_and_vars:
       expanded_g = tf.expand_dims(g,0)
-      grads.add(expanded_g)
+      grads.append(expanded_g)
     grad = tf.concat(grads,0)
     grad = tf.reduce_mean(grad,0)
     v = grad_and_vars[0][1]
@@ -50,34 +50,37 @@ def main():
   tf.logging.set_verbosity(tf.logging.INFO) #设置日志级别
 
   #-------------搭建计算图-------------#
-  with tf.Graph().as_default(),tf.device('/cpu:0'):
+  with tf.device('/cpu:0'):
     # 简单计算放在CPU上进行
     global_step= tf.Variable(0,name='global_step',trainable=False) # global_step
     lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE_BASE, global_step, cfg.TRAIN.DECAY_STEP, cfg.TRAIN.DECAY_RATE, staircase=True) # 学习率
     opt = tf.train.MomentumOptimizer(lr,cfg.TRAIN.MOMENTUM)  # 优化函数
-
-    # 在GPU上运行（并行）
+    #opt = tf.train.GradientDescentOptimizer(lr)  # 优化函数
+    
     num_gpus = len(cfg.GPUS.split(','))
+  # 在GPU上运行（并行）
+  tower_grads = []
+  with tf.variable_scope(tf.get_variable_scope()) as vscope: # 见https://github.com/tensorflow/tensorflow/issues/6220
     for i in range(num_gpus):
       with tf.device('/gpu:%d'%i): 
-        with tf.name_scope('GPU:%d'%i) as scope:
+        with tf.name_scope('GPU_%d'%i) as scope:
           # 读取数据,tsn_batch形式：(batch_size*num_seg*new_length) * h * w * num_channels
           if cfg.INPUT.MODALITY == 'rgb':
             tsn_batch ,labels= TSNDataReader(cfg.INPUT.DATA_DIR,
-                                         cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
-                                         cfg.INPUT.NUM_SEGMENTS,
-                                         cfg.INPUT.NEW_LENGTH,
-                                         cfg.INPUT.SPLIT_PATH,
-                                         cfg.TRAIN.BATCH_SIZE,
-                                         isTraining=True).get_batch()
+                                           cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
+                                           cfg.INPUT.NUM_SEGMENTS,
+                                           cfg.INPUT.NEW_LENGTH,
+                                           cfg.INPUT.SPLIT_PATH,
+                                           cfg.TRAIN.BATCH_SIZE,
+                                           isTraining=True).get_batch()
           elif cfg.INPUT.MODALITY == 'flow':
             tsn_batch, labels = TSNDataReader(cfg.INPUT.DATA_DIR,
-                                         cfg.INPUT.MODALITY,
-                                         cfg.INPUT.NUM_SEGMENTS,
-                                         cfg.INPUT.NEW_LENGTH,
-                                         cfg.INPUT.SPLIT_PATH,
-                                         cfg.TRAIN.BATCH_SIZE,
-                                         isTraining=True).get_batch()
+                                           cfg.INPUT.MODALITY,
+                                           cfg.INPUT.NUM_SEGMENTS,
+                                           cfg.INPUT.NEW_LENGTH,
+                                           cfg.INPUT.SPLIT_PATH,
+                                           cfg.TRAIN.BATCH_SIZE,
+                                           isTraining=True).get_batch()
           else:
             raise ValueError("modality must be one of rgb or flow") 
 
@@ -94,26 +97,32 @@ def main():
                                     reuse=None,
                                     scope='InceptionV2',
                                     global_pool=False)
-          logits = tf.reshape(logits, [cfg.TRAIN.BATCH_SIZE, cfg.INPUT.NUM_SEGMENTS*cfg.INPUT.NEW_LENGTH, -1]) #tsn的特殊性决定
-          logits = tf.reduce_mean(logits,1) # 取采样图片输出的平均值
-          prediction = tf.nn.softmax(logits)
-          # 求loss
-          loss = tsn_loss(logits, labels, regularization= None,scope)
+          tf.get_variable_scope().reuse_variables()
+        print '#############'
+        print tf.get_variable_scope().name
+        print '#############'
+        logits = tf.reshape(logits, [cfg.TRAIN.BATCH_SIZE, cfg.INPUT.NUM_SEGMENTS*cfg.INPUT.NEW_LENGTH, -1]) #tsn的特殊性决定
+        logits = tf.reduce_mean(logits,1) # 取采样图片输出的平均值
+        prediction = tf.nn.softmax(logits)
+        # 求loss
+        loss = tsn_loss(logits, labels, scope, regularization= None)
 
-          # 计算梯度，并由tower_grads收集
-          grads_and_vars = opt.compute_gradients(loss, var_list=tf.trainable_variables) # (gradient, variable)组成的列表
-          tower_grads.append(grads_and_vars)
+        # 计算梯度，并由tower_grads收集
+        grads_and_vars = opt.compute_gradients(loss, var_list=tf.trainable_variables()) # (gradient, variable)组成的列表
+        tower_grads.append(grads_and_vars)
           
-    grads_and_vars = average_gradients(tower_grads) # 求取各GPU平均梯度
-    train_step = opt.apply_gradients(grads_and_vars)
+  grads_and_vars = average_gradients(tower_grads) # 求取各GPU平均梯度
+  train_step = opt.apply_gradients(grads_and_vars,global_step=global_step)
+    
+  # saver
+  saver = tf.train.Saver()
 
-    # saver
-    saver = tf.train.Saver()
 
   #-------------启动Session-------------#
   # (预测验证集，求取精度)
-  with tf.Session() as sess:
-    #初始化变量
+  config =tf.ConfigProto(allow_soft_placement=True)
+  with tf.Session(config = config) as sess:
+    #初始化变量(或加载pretrained models)
     tf.global_variables_initializer().run()
     #saver.restore(sess,cfg.TRAIN.PRETRAINED_MODEL_NAME)
 
@@ -123,6 +132,7 @@ def main():
 
       if i % 10 == 0:
         print("After %d training step(s), loss on training batch is %g." % (step, loss_value))
+      # 每个epoch验证一次，保存模型
       if i % 100 == 0:
         saver.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step) 
   
