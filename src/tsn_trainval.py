@@ -3,6 +3,7 @@ import tensorflow as tf
 import argparse
 import pprint
 import os
+import os.path as osp
 import sys
 
 #sys.path.append("~/workspace/Classical-ActionRecognition-Model-Zoo/net")
@@ -10,6 +11,7 @@ from nets.inception_v2 import inception_v2, inception_v2_arg_scope
 from tsn_config import cfg,cfg_from_file ,get_output_dir
 from dataset_factory import TSNDataReader
 from loss import tsn_loss
+from utils.view_ckpt import view_ckpt
 
 slim = tf.contrib.slim
 
@@ -52,10 +54,12 @@ def main():
   #-------------搭建计算图-------------#
   with tf.device('/cpu:0'):
     # 简单计算放在CPU上进行
-    global_step= tf.Variable(0,name='global_step',trainable=False) # global_step
+    global_step= tf.get_variable('global_step',[],dtype=None,initializer=tf.constant_initializer(0),trainable=False) # global_step
+    #global_step= tf.Variable(0,name='global_step',trainable=False)
     lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE_BASE, global_step, cfg.TRAIN.DECAY_STEP, cfg.TRAIN.DECAY_RATE, staircase=True) # 学习率
-    opt = tf.train.MomentumOptimizer(lr,cfg.TRAIN.MOMENTUM)  # 优化函数
-    #opt = tf.train.GradientDescentOptimizer(lr)  # 优化函数
+    tf.summary.scalar('learnrate',lr)
+    #opt = tf.train.MomentumOptimizer(lr,cfg.TRAIN.MOMENTUM)  # 优化函数
+    opt = tf.train.GradientDescentOptimizer(lr)  # 优化函数
     
     num_gpus = len(cfg.GPUS.split(','))
   # 在GPU上运行（并行）
@@ -98,44 +102,66 @@ def main():
                                     scope='InceptionV2',
                                     global_pool=False)
           tf.get_variable_scope().reuse_variables()
-        print '#############'
-        print tf.get_variable_scope().name
-        print '#############'
         logits = tf.reshape(logits, [cfg.TRAIN.BATCH_SIZE, cfg.INPUT.NUM_SEGMENTS*cfg.INPUT.NEW_LENGTH, -1]) #tsn的特殊性决定
         logits = tf.reduce_mean(logits,1) # 取采样图片输出的平均值
         prediction = tf.nn.softmax(logits)
+        acc_batch = tf.reduce_mean(tf.cast(tf.equal(prediction,tf.cast(labels,tf.float32)),tf.float32))
+        tf.summary.scalar('acc_on_batch',acc_batch)
         # 求loss
         loss = tsn_loss(logits, labels, scope, regularization= None)
-
+        tf.summary.scalar('loss',loss)
         # 计算梯度，并由tower_grads收集
         grads_and_vars = opt.compute_gradients(loss, var_list=tf.trainable_variables()) # (gradient, variable)组成的列表
         tower_grads.append(grads_and_vars)
           
   grads_and_vars = average_gradients(tower_grads) # 求取各GPU平均梯度
   train_step = opt.apply_gradients(grads_and_vars,global_step=global_step)
-    
+   
+  merged = tf.summary.merge_all()
+ 
   # saver
-  saver = tf.train.Saver()
+  model_variables_map={}
+  for variable in tf.global_variables():
+    if variable.name.split('/')[0] == 'InceptionV2' and variable.name.find('Conv2d_1c_1x1') == -1:  
+      model_variables_map[variable.name.replace(':0', '')] = variable
+  print '####################################################'
+  for i in model_variables_map.keys():
+    print i
+  print '#####################################################'
+  saver_model = tf.train.Saver(var_list=model_variables_map) #不加载'InceptionV2/Logits/Conv2d_1c_1x1/'下的参数
+  
 
 
   #-------------启动Session-------------#
   # (预测验证集，求取精度)
-  config =tf.ConfigProto(allow_soft_placement=True)
+  gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+  config =tf.ConfigProto(gpu_options=gpu_options,allow_soft_placement=True)
   with tf.Session(config = config) as sess:
+    run_options = tf.RunOptions(trace_level = tf.RunOptions.FULL_TRACE)
+    run_metadata = tf.RunMetadata()
+    joint_writer = tf.summary.FileWriter(cfg.SUMMARY_DIR, sess.graph)
+    summary_writer = tf.summary.FileWriter(cfg.SUMMARY_DIR, sess.graph)
+
     #初始化变量(或加载pretrained models)
     tf.global_variables_initializer().run()
-    #saver.restore(sess,cfg.TRAIN.PRETRAINED_MODEL_NAME)
+    saver_model.restore(sess,cfg.TRAIN.PRETRAINED_MODEL_NAME)
 
     sess.graph.finalize()
     for i in range(cfg.TRAIN.MAX_ITE):
-      _,loss_value, step = sess.run([train_step,loss, global_step])
+      _,loss_value, step, summary = sess.run([train_step,loss, global_step,merged],options=run_options, run_metadata=run_metadata)
+      #_,loss_value, step, summary = sess.run([train_step,loss, global_step,merged])
 
       if i % 10 == 0:
         print("After %d training step(s), loss on training batch is %g." % (step, loss_value))
       # 每个epoch验证一次，保存模型
       if i % 100 == 0:
-        saver.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step) 
-  
+        saver_model.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step) 
+    
+      joint_writer.add_run_metadata(run_metadata, 'step%03d'%i)
+      summary_writer.add_summary(summary,i)
+
+  summary_writer.close()
+
 if __name__=='__main__':
   main()  
   
