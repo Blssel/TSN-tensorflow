@@ -104,8 +104,10 @@ def main():
           tf.get_variable_scope().reuse_variables()
         logits = tf.reshape(logits, [cfg.TRAIN.BATCH_SIZE, cfg.INPUT.NUM_SEGMENTS*cfg.INPUT.NEW_LENGTH, -1]) #tsn的特殊性决定
         logits = tf.reduce_mean(logits,1) # 取采样图片输出的平均值
+        # 做一个batch准确度的预测
         prediction = tf.nn.softmax(logits)
-        acc_batch = tf.reduce_mean(tf.cast(tf.equal(prediction,tf.cast(labels,tf.float32)),tf.float32))
+        acc_batch = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(prediction,1),tf.argmax(labels,1)),tf.float32))
+        #acc_batch = tf.reduce_mean(tf.cast(tf.equal(prediction,tf.cast(labels,tf.float32)),tf.float32))
         tf.summary.scalar('acc_on_batch',acc_batch)
         # 求loss
         loss = tsn_loss(logits, labels, scope, regularization= None)
@@ -148,11 +150,11 @@ def main():
 
     sess.graph.finalize()
     for i in range(cfg.TRAIN.MAX_ITE):
-      _,loss_value, step, summary = sess.run([train_step,loss, global_step,merged],options=run_options, run_metadata=run_metadata)
+      _,learnrate, loss_value, step, summary = sess.run([train_step, lr, loss, global_step,merged],options=run_options, run_metadata=run_metadata)
       #_,loss_value, step, summary = sess.run([train_step,loss, global_step,merged])
 
       if i % 10 == 0:
-        print("After %d training step(s), loss on training batch is %g." % (step, loss_value))
+        print("After %d training step(s), learning rate is %g, loss on training batch is %g." % (step, learnrate, loss_value))
       # 每个epoch验证一次，保存模型
       if i % 100 == 0:
         saver_model.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step) 

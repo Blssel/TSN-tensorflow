@@ -33,6 +33,7 @@ __C.TRAIN.MAX_ITE = 4500
 __C.TRAIN.MOMENTUM = 0.9
 
 __C.TRAIN.PRETRAINED_MODEL_NAME = './models/pretrained/inception_v2.ckpt'
+#__C.TRAIN.PRETRAINED_MODEL_NAME = './models/tsn_rgb_bk_v1.ckpt-4001'
 __C.TRAIN.SAVED_MODEL_PATTERN = './models/tsn_rgb_bk_v1.ckpt'
 #------Test配置-------#
 __C.TEST = edict()
