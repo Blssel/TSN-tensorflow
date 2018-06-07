@@ -1,0 +1,7 @@
+INPUT:
+  NUM_SEGMENTS: 5 #!!!!!!!!!!!!!!!
+  NEW_LENGTH: 5  # !!!!!!!!!!!!!!
+
+  SPLIT_PATH: '/home/myn_17/BK - v1/trainlist.txt' # !!!!!!!!!!!
+  BATCH_SIZE: 2  #!!!!!!!!!!!!!!!
+  PRETRAINED_MODEL_NAME: './models/tsn_rgb_bk_v1.ckpt-4001'

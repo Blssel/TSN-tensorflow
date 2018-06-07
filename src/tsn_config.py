@@ -1,6 +1,7 @@
 #coding:utf-8
 import os
 import os.path as osp
+import numpy as np
 from easydict import EasyDict as edict
 
 """cfg变量中保存的是默认config
@@ -16,14 +17,12 @@ __C.INPUT.MODALITY= 'rgb'  # 可选
 __C.INPUT.NUM_SEGMENTS = 3
 __C.INPUT.NEW_LENGTH = 1  # 可变
 __C.INPUT.DATA_DIR = '/home/zy_17/tsn_violence'  #可通过调整此项在多个数据集上做实验
-__C.INPUT.SPLIT_PATH = '/home/myn_17/BK - v1/testlist.txt' # 随MODALITY而变
+__C.INPUT.SPLIT_PATH = '/home/myn_17/BK - v1/trainlist.txt' # optional
 
 #------Training配置-------#
 __C.TRAIN = edict()
 
-#__C.TRAIN.SPLIT_PATH = '/home/myn_17/BK - v1/trainlist.txt'
-#__C.TRAIN.BATCH_SIZE = 256
-__C.TRAIN.BATCH_SIZE = 64   # equal to real batch_size / num_gpus
+__C.TRAIN.BATCH_SIZE = 128
 __C.TRAIN.LEARNING_RATE_BASE = 0.001
 __C.TRAIN.DECAY_STEP = 2000
 __C.TRAIN.DECAY_RATE = 0.1
@@ -33,7 +32,6 @@ __C.TRAIN.MAX_ITE = 4500
 __C.TRAIN.MOMENTUM = 0.9
 
 __C.TRAIN.PRETRAINED_MODEL_NAME = './models/pretrained/inception_v2.ckpt'
-#__C.TRAIN.PRETRAINED_MODEL_NAME = './models/tsn_rgb_bk_v1.ckpt-4001'
 __C.TRAIN.SAVED_MODEL_PATTERN = './models/tsn_rgb_bk_v1.ckpt'
 #------Test配置-------#
 __C.TEST = edict()
@@ -44,7 +42,6 @@ __C.TEST.BATCH_SIZE = 10
 #------Network配置-------#
 __C.NET = edict()
 __C.NET.TRAIN_TOP_BN = False
-__C.NET.DROPOUT = -1.0
 
 #------其它配置-------#
 __C.NUM_CLASSES = 30

@@ -1,0 +1,17 @@
+SUMMARY_DIR : ./log
+
+INPUT:
+  MODALITY: 'rgb'  # 可选
+  NEW_LENGTH: 1  # 可变
+  SPLIT_PATH: '/home/myn_17/BK - v1/trainlist.txt'
+
+TRAIN:
+  BATCH_SIZE: 128
+  LEARNING_RATE_BASE: 0.001
+  DECAY_STEP: 2000
+  DECAY_RATE: 0.1
+  PRETRAINED_MODEL_NAME: './models/pretrained/inception_v2.ckpt'
+
+NUM_CLASSES: 30
+GPUS: '0,1'  # 末尾无逗号
+SUMMARY_DIR: './log'

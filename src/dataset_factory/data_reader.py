@@ -5,6 +5,7 @@ import os.path as osp
 import random
 import numpy as np
 import cv2
+import time
 import tensorflow as tf
  
 from tsn_config import cfg
@@ -136,14 +137,17 @@ def _sparse_sample(vid):
 
 def generator():
   vid_labels = _parse_split(cfg.INPUT.SPLIT_PATH)
-  for vid, label in vid_labels:
-    # 稀疏采样
-    sampled_images = _sparse_sample(vid)
-    zeros = np.zeros((cfg.NUM_CLASSES),dtype=np.int)
-    zeros[int(label)-1] = 1
-    label= zeros
-    label=np.reshape(label,[cfg.NUM_CLASSES])
-    yield (sampled_images, label)
+  print '@@@@@@@@@@@@@@@@@'
+  print len(vid_labels)
+  while True:
+    for vid, label in vid_labels:
+      # 稀疏采样
+      sampled_images = _sparse_sample(vid)
+      zeros = np.zeros((cfg.NUM_CLASSES),dtype=np.int)
+      zeros[int(label)-1] = 1
+      label= zeros
+      label=np.reshape(label,[cfg.NUM_CLASSES])
+      yield (sampled_images, label)
 
 
 
@@ -159,20 +163,23 @@ class TSNDataReader():
 
 
 
-  def get_batch(self):
+  def get_dataset_iter(self):
     """
     读取数据，预处理，组成batch，返回
     """
     #dataset=tf.data.Dataset.from_generator(generator,(tf.float32, tf.int32), (tf.TensorShape([self.num_segments*self.new_length, 224,224,3 if self.modality=='rgb' else 2]), tf.TensorShape([cfg.NUM_CLASSES]))) #()
     dataset=tf.data.Dataset.from_generator(generator,(tf.float32, tf.int32) ) #()
     # 预处理map
-    dataset=dataset.map(_tsn_data_augment,num_parallel_calls=4) 
+    dataset=dataset.map(_tsn_data_augment,num_parallel_calls=30)
     # shuffle, get_batch
     if self.isTraining:
-      dataset = dataset.repeat().shuffle(buffer_size=self.batch_size*10).batch(self.batch_size)
+      dataset = dataset.shuffle(buffer_size=self.batch_size*20).batch(self.batch_size).prefetch(buffer_size=10)
+      #dataset = dataset.repeat().shuffle(buffer_size=self.batch_size*50).batch(self.batch_size).prefetch(buffer_size=10)
     else:
-      dataset = dataset.repeat().batch(self.batch_size)
+      dataset = dataset.batch(self.batch_size)
     iter = dataset.make_one_shot_iterator()
+    return iter
+    '''
     image_batch, label_batch = iter.get_next()
     # 将batch reshape为batch_size*num_segments*new_length, h, w, num_channels 
     if self.modality=='rgb':
@@ -180,3 +187,4 @@ class TSNDataReader():
     else:
       image_batch =tf.reshape(image_batch,[self.batch_size*self.num_segments*self.new_length, 224, 224, 2])
     return image_batch, label_batch
+    '''

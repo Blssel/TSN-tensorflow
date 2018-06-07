@@ -1,0 +1,12 @@
+INPUT:
+  MODALITY= 'flow'
+  NUM_SEGMENTS = 3
+  NEW_LENGTH = 10
+  DATA_DIR = '/home/zy_17/tsn_violence'
+  SPLIT_PATH = '/home/myn_17/BK - v1/trainlist.txt'
+  
+TRAIN:
+  LEARNING_RATE_BASE = 0.005
+  TRAIN.DECAY_STEP = 12000
+  TRAIN.MAX_ITE = 20000
+  SAVED_MODEL_PATTERN = './models/tsn_flow_bk_v1.ckpt'
