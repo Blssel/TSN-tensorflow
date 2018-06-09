@@ -327,8 +327,8 @@ def get_dataset_iter():
     dataset_train=dataset_train.map(_tsn_data_augment_train,num_parallel_calls=30)
     dataset_valid=dataset_valid.map(_tsn_data_augment_valid,num_parallel_calls=4)
     # shuffle, get_batch
-    dataset_train = dataset_train.repeat().batch(param.train_batch_size).prefetch(buffer_size=10)
-    #dataset_train = dataset_train.repeat().shuffle(buffer_size=param.train_batch_size*20).batch(param.train_batch_size).prefetch(buffer_size=10)
+    #dataset_train = dataset_train.repeat().batch(param.train_batch_size).prefetch(buffer_size=10)
+    dataset_train = dataset_train.repeat().shuffle(buffer_size=param.train_batch_size*20).batch(param.train_batch_size).prefetch(buffer_size=10)
     dataset_valid = dataset_valid.repeat().batch(param.valid_batch_size)
     iter_train = dataset_train.make_one_shot_iterator()
     iter_valid = dataset_valid.make_one_shot_iterator()
