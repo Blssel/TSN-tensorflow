@@ -114,7 +114,6 @@ def main():
         # 求loss
         for variable in tf.global_variables():
           if variable.name.find('weights')>0: # 把参数w加入集合tf.GraphKeys.WEIGHTS，方便做正则化(此句必须放在正则化之前)
-            print variable.name
             tf.add_to_collection(tf.GraphKeys.WEIGHTS,variable)
         loss = tsn_loss(logits, label_batch_split, regularization= True)
         tf.summary.scalar('loss',loss)
@@ -198,7 +197,6 @@ def main():
 
       # 每个epoch验证一次，保存模型
       if i % 100 == 0:
-        '''
         print '#############################################'
         print 'valid and save model'
         accs = []
@@ -210,7 +208,6 @@ def main():
         print num
         acc_valid = np.mean(np.array(accs))
         print 'accuracy on validation set is %0.4f'%acc_valid
-        '''
         print 'saving model...'
         saver_model.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step)
         print 'successfully saved !'
