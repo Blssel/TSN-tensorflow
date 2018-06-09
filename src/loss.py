@@ -10,11 +10,8 @@ def tsn_loss(logits,labels,regularization=None):
     
     # 正则化(正则化在定义模型的时候就被加入)
     if regularization is not None:
-      regularizer=tf.contrib.layers.l2_regularizer(scale=10.0)
+      regularizer=tf.contrib.layers.l2_regularizer(scale=0.001)
       regularization=tf.contrib.layers.apply_regularization(regularizer, weights_list=None)
-      print 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
-      print tf.get_collection(tf.GraphKeys.WEIGHTS)
-      print 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
       #regularization_loss = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES,scope)) # 这个scope可以保证并行时候仅加上当前GPU上的weights
       loss = cross_entropy + regularization
       return loss
