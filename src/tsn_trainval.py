@@ -1,15 +1,16 @@
 #coding:utf-8
-import tensorflow as tf
 import argparse
 import pprint
 import os
-import os.path as osp
 import sys
 import time
+import tensorflow as tf
+import numpy as np
+import os.path as osp
+import dataset_factory.data_reader as reader
 
 from nets.inception_v2 import inception_v2, inception_v2_arg_scope
 from tsn_config import cfg,cfg_from_file ,get_output_dir
-from dataset_factory import TSNDataReader
 from loss import tsn_loss
 from utils.view_ckpt import view_ckpt
 
@@ -60,20 +61,23 @@ def main():
     #opt = tf.train.GradientDescentOptimizer(lr)  # 优化函数
     num_gpus = len(cfg.GPUS.split(','))
     # 建立dataset，获取iterator
-    ite = TSNDataReader(cfg.INPUT.DATA_DIR,
-                         cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
-                         cfg.INPUT.NUM_SEGMENTS,
-                         cfg.INPUT.NEW_LENGTH,
-                         cfg.INPUT.SPLIT_PATH,
-                         cfg.TRAIN.BATCH_SIZE,
-                         isTraining=True).get_dataset_iter()
-    try:
-      tsn_batch, label_batch = ite.get_next()
-    except tf.errors.OutOfRangeError:
-      pass
+    reader.set_param(cfg.INPUT.DATA_DIR,
+                           cfg.INPUT.MODALITY,  # flow模态读取方式与rgb稍有不同
+                           cfg.VALID.SPLIT_PATH,
+                           cfg.VALID.BATCH_SIZE,
+                           num_segments = cfg.INPUT.NUM_SEGMENTS,
+                           new_length = cfg.INPUT.NEW_LENGTH,
+                           train_split_path = cfg.INPUT.SPLIT_PATH,
+                           train_batch_size = cfg.TRAIN.BATCH_SIZE,
+                           isTraining=True)
+    ite_train, ite_valid = reader.get_dataset_iter()
+    tsn_batch, label_batch = ite_train.get_next()
     tsn_batch_splits = tf.split(tsn_batch,num_or_size_splits=num_gpus, axis=0)
     label_batch_splits = tf.split(label_batch,num_or_size_splits=num_gpus, axis=0)
-  # 在GPU上运行（并行）
+      
+    tsn_valid_batch, label_valid_batch = ite_valid.get_next()
+    
+  # 在GPU上运行训练（并行）
   tower_grads = []
   with tf.variable_scope(tf.get_variable_scope()) as vscope: # 见https://github.com/tensorflow/tensorflow/issues/6220
     for i in range(num_gpus):
@@ -108,14 +112,47 @@ def main():
         acc_batch = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(prediction,1),tf.argmax(label_batch_split,1)),tf.float32))
         tf.summary.scalar('acc_on_batch',acc_batch)
         # 求loss
-        loss = tsn_loss(logits, label_batch_split, scope, regularization= None)
+        for variable in tf.global_variables():
+          if variable.name.find('weights')>0: # 把参数w加入集合tf.GraphKeys.WEIGHTS，方便做正则化(此句必须放在正则化之前)
+            print variable.name
+            tf.add_to_collection(tf.GraphKeys.WEIGHTS,variable)
+        loss = tsn_loss(logits, label_batch_split, regularization= True)
         tf.summary.scalar('loss',loss)
         # 计算梯度，并由tower_grads收集
         grads_and_vars = opt.compute_gradients(loss, var_list=tf.trainable_variables()) # (gradient, variable)组成的列表
         tower_grads.append(grads_and_vars)
-          
   grads_and_vars = average_gradients(tower_grads) # 求取各GPU平均梯度
   train_step = opt.apply_gradients(grads_and_vars,global_step=global_step)
+   
+  # 在GPU上运行验证（串行）
+  with tf.variable_scope(tf.get_variable_scope()) as vscope: # 见https://github.com/tensorflow/tensorflow/issues/6220
+    with tf.device('/gpu:0'), tf.name_scope('VALID') as scope:
+      tf.get_variable_scope().reuse_variables()
+      if cfg.INPUT.MODALITY == 'rgb':
+        tsn_valid_batch = tf.reshape(tsn_valid_batch,[cfg.VALID.BATCH_SIZE*25, 224, 224, 3])
+      elif cfg.INPUT.MODALITY == 'flow':
+        tsn_valid_batch = tf.reshape(tsn_valid_batch,[cfg.VALID.BATCH_SIZE*25, 224, 224, 2])
+      else:
+        raise ValueError("modality must be one of rgb or flow")
+  
+      with slim.arg_scope(inception_v2_arg_scope()):
+        logits_valid, _= inception_v2(tsn_valid_batch,
+                                num_classes=cfg.NUM_CLASSES,
+                                is_training=False,
+                                dropout_keep_prob=cfg.TRAIN.DROPOUT_KEEP_PROB,
+                                min_depth=16,
+                                depth_multiplier=1.0,
+                                prediction_fn=slim.softmax,
+                                spatial_squeeze=True,
+                                reuse=None,
+                                scope='InceptionV2',
+                                global_pool=False)
+      logits_valid = tf.reshape(logits_valid, [cfg.VALID.BATCH_SIZE, 25, -1]) #tsn的特殊性决定
+      logits_valid = tf.reduce_mean(logits_valid,1) # 取采样图片输出的平均值
+      # 做一个batch准确度的预测
+      prediction_valid = tf.nn.softmax(logits_valid)
+      acc_valid_batch = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(prediction_valid,1),tf.argmax(label_valid_batch,1)),tf.float32))
+ 
    
   merged = tf.summary.merge_all()
  
@@ -128,13 +165,13 @@ def main():
   for i in model_variables_map.keys():
     print i
   print '#####################################################'
-  saver_model = tf.train.Saver(var_list=model_variables_map) #不加载'InceptionV2/Logits/Conv2d_1c_1x1/'下的参数
+  saver_model = tf.train.Saver(var_list=model_variables_map,max_to_keep=20) #不加载'InceptionV2/Logits/Conv2d_1c_1x1/'下的参数
   
 
 
   #-------------启动Session-------------#
   # (预测验证集，求取精度)
-  gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
+  gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
   config =tf.ConfigProto(gpu_options=gpu_options,allow_soft_placement=True)
   with tf.Session(config = config) as sess:
     run_options = tf.RunOptions(trace_level = tf.RunOptions.FULL_TRACE)
@@ -158,9 +195,27 @@ def main():
           avg_time = (end_time-start_time)/float(i+1)
           print("Average time consumed per step is %0.2f secs." % avg_time)
         print("After %d training step(s), learning rate is %g, loss on training batch is %g." % (step, learnrate, loss_value))
+
       # 每个epoch验证一次，保存模型
       if i % 100 == 0:
-        saver_model.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step) 
+        '''
+        print '#############################################'
+        print 'valid and save model'
+        accs = []
+        num = 0
+        for j in range(849):  
+          num+=1
+          acc = sess.run(acc_valid_batch)
+          accs.append(acc)
+        print num
+        acc_valid = np.mean(np.array(accs))
+        print 'accuracy on validation set is %0.4f'%acc_valid
+        '''
+        print 'saving model...'
+        saver_model.save(sess, cfg.TRAIN.SAVED_MODEL_PATTERN, global_step=global_step)
+        print 'successfully saved !'
+        print '#############################################'
+        
     
       joint_writer.add_run_metadata(run_metadata, 'step%03d'%i)
       summary_writer.add_summary(summary,i)

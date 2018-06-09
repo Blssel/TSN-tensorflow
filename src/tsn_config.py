@@ -33,11 +33,14 @@ __C.TRAIN.MOMENTUM = 0.9
 
 __C.TRAIN.PRETRAINED_MODEL_NAME = './models/pretrained/inception_v2.ckpt'
 __C.TRAIN.SAVED_MODEL_PATTERN = './models/tsn_rgb_bk_v1.ckpt'
-#------Test配置-------#
-__C.TEST = edict()
+#------Valid配置-------#
+__C.VALID = edict()
 
-__C.TEST.SPLIT_PATH = '/home/myn_17/BK - v1/testlist.txt'
-__C.TEST.BATCH_SIZE = 10
+__C.VALID.SPLIT_PATH = '/home/myn_17/BK - v1/testlist.txt'
+__C.VALID.BATCH_SIZE = 1
+__C.VALID.NUM_SEGMENTS = 3
+__C.VALID.NEW_LENGTH = 1
+
 
 #------Network配置-------#
 __C.NET = edict()
